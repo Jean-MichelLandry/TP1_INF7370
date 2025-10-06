@@ -2,5 +2,4 @@ scikit-learn
 Scikit-plot
 Numpy
 pandas
-Pickle
 matplotlib

@@ -1,4 +1,9 @@
-venv/**
+.venv/**
+./.venv
 *.pdf
-donnees/**
+./data
 *.csv
+./resultats
+./datasets/**
+./datasets
+test_predictions.csv
