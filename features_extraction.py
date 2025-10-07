@@ -3,11 +3,27 @@ import pandas as pd
 import argparse
 import pathlib
 import re
+import html
 
 APOS = ("'", "’", "ʼ", "ʹ", "‛", "＇")
 TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 
-def count_occurrences(text: str, expressions: set[str]) -> int:
+
+
+
+
+
+def count_occurrences_emojis(text: str, expressions: set[str]) -> int:
+    c = 0
+    if not text or len(text)==0:
+        return 0
+        
+    s = html.unescape(text).casefold()
+    for expr in expressions:
+        c+= s.count(expr.casefold())
+    return c
+
+def count_occurrences_words(text: str, expressions: set[str]) -> int:
     if not text or not expressions:
         return 0
 
@@ -162,12 +178,12 @@ def add_features(df: pd.DataFrame, lexiques: dict[str, list[str]]) -> pd.DataFra
     df["nb_mots"] = current.apply( lambda x : len(str(x).split()))
     df["nb_caracteres"]  = current.apply(lambda x: len(str(x)))
     df["nb_moy_caracteres"]  = current.apply(lambda x: count_average_caracters(str(x)))
-    df["nbr_emoticones_positifs"] = current.apply(lambda x: count_occurrences(x, emoticon_pos))
-    df["nbr_emoticones_negatifs"] = current.apply(lambda x: count_occurrences(x, emoticon_neg))
-    df["nb_mots_pos"] = current.apply(lambda x: count_occurrences(x, pos_words))
-    df["nb_mots_neg"] = current.apply(lambda x: count_occurrences(x, neg_words))
-    df["nb_intensifieurs"] = current.apply(lambda x: count_occurrences(x, intensifiers))
-    df["nb_mots_negation"] = current.apply(lambda x: count_occurrences(x, negation_words))
+    df["nbr_emoticones_positifs"] = current.apply(lambda x: count_occurrences_emojis(x, emoticon_pos))
+    df["nbr_emoticones_negatifs"] = current.apply(lambda x: count_occurrences_emojis(x, emoticon_neg))
+    df["nb_mots_pos"] = current.apply(lambda x: count_occurrences_words(x, pos_words))
+    df["nb_mots_neg"] = current.apply(lambda x: count_occurrences_words(x, neg_words))
+    df["nb_intensifieurs"] = current.apply(lambda x: count_occurrences_words(x, intensifiers))
+    df["nb_mots_negation"] = current.apply(lambda x: count_occurrences_words(x, negation_words))
     df["nb_majuscules"] = current.apply(lambda x: count_all_caps(x))
     df["nb_mentions"] = current.apply(lambda x: count_tokens_starting_with(x, '#'))
     df["nb_hashtags"] = current.apply(lambda x: count_tokens_starting_with(x, '@'))

@@ -117,35 +117,37 @@ def evaluate_model(model_name, X_train, y_train, X_test, y_test, out_dir):
     }
 
     classifiers = {
-        "Decision Tree": DecisionTreeClassifier(max_depth=8, random_state=42),
-
+        "Decision Tree": DecisionTreeClassifier(
+            max_depth=12,
+            min_samples_split=0.01,
+            min_samples_leaf=0.005,
+            
+            random_state=42
+        ),
         "Random Forest": RandomForestClassifier(
-            n_estimators=250,
+            n_estimators=400,
             max_depth=10,
             min_samples_leaf=3,
-            max_features="sqrt",
             random_state=42
         ),
-
         "AdaBoost": AdaBoostClassifier(
-            estimator=DecisionTreeClassifier(max_depth=2, random_state=42),
-            n_estimators=250,
-            learning_rate=0.2,
+            estimator=DecisionTreeClassifier(max_depth=1, random_state=42),
+            n_estimators=600,
+            learning_rate=0.05,
             random_state=42
         ),
-
         "Gradient Boosting": GradientBoostingClassifier(
-            n_estimators=400,
-            learning_rate=0.1,
-            max_depth=1,           # arbres faibles (stumps profonds=1)
+            loss="log_loss",
+            n_estimators=600,
+            learning_rate=0.05,
+            max_depth=3,
             random_state=42
         ),
-
         "Bagging": BaggingClassifier(
-            estimator=DecisionTreeClassifier(max_depth=2, random_state=42),
+            estimator=DecisionTreeClassifier(max_depth=8,random_state=42),
             n_estimators=150,
             random_state=42
-        ),
+        )
     }
 
     clf = classifiers[model_name]
@@ -211,7 +213,8 @@ def save_results(res_df, out_dir="resultats"):
 def classify_data(train_data_file: str):
     df = pd.read_csv(train_data_file)
 
-    drop_cols = {"ItemID", "SentimentText", "Sentiment"}
+    drop_cols = {"ItemID", "SentimentText", "Sentiment","nb_questions","nb_intensifieurs"}
+    
     feature_cols = [c for c in df.columns if c not in drop_cols]
     X = df[feature_cols]
     y = df["Sentiment"]

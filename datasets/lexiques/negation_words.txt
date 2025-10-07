@@ -27,5 +27,23 @@ missing
 ain't
 zip
 zilch
+can't
+cant
+won't
+wouldn't
+shouldn't
+couldn't
+mustn't
+shan't
+isn't
+aren't
+wasn't
+weren't
+doesn't
+don't
+didn't
+hasn't
+haven't
+hadn't
 ain’t nobody
 nowhere near
