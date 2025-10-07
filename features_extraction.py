@@ -8,12 +8,17 @@ APOS = ("'", "’", "ʼ", "ʹ", "‛", "＇")
 TOKEN_RE = re.compile(r"\w+", re.UNICODE)
 
 def count_occurrences(text: str, expressions: set[str]) -> int:
-    if not text:
+    if not text or not expressions:
         return 0
-    t = text.lower()
-    c =0
-    for expr in expressions:
-        c += t.count(expr)
+
+    punct = ".,!?;:\"'()[]<>"
+    c = 0
+
+    for tok in text.split():           
+        t = tok.casefold().strip(punct)   
+        if t and t in expressions:     
+            c += 1
+
     return c
 
 def count_all_caps(text: str) -> int:
@@ -26,7 +31,6 @@ def count_all_caps(text: str) -> int:
     return n
 
 def has_repeated_word(text: str) -> int:
-    text = str(text)
     punct = ".,!?;:\"'()[]<>"
     prev = None
     for tok in text.split():
@@ -56,36 +60,54 @@ def tokenize(text: str) -> list[str]:
     text = "".join("'" if ch in APOS else ch for ch in text)
     return [t.casefold() for t in TOKEN_RE.findall(text)]
 
+def count_average_caracters(text: str) -> float:
+
+    if not text:
+        return 0.0
+
+    punct = ".,!?;:\"'()[]<>…—-"
+    tokens = [tok.strip(punct) for tok in text.split()]
+    tokens = [t for t in tokens if t] 
+
+    if not tokens:
+        return 0.0
+
+    total_chars = sum(len(t) for t in tokens)
+    return total_chars / len(tokens)
+
 
 def count_polar_expressions(text: str,
                             pos_words: set[str],
                             neg_words: set[str],
                             intensifiers: set[str],
                             negations: set[str],
+                            links: set[str],
                             pos_emojis: set[str],
                             neg_emojis: set[str]) -> tuple[int, int]:
     if not text:
         return 0, 0
     toks = tokenize(text)
-    L = len(toks)
+    num_tokens = len(toks)
     pos = 0
     neg = 0
     joined = text.casefold()
-    pe = sum(joined.count(e) for e in pos_emojis)
-    ne = sum(joined.count(e) for e in neg_emojis)
+    pos_emoticone = sum(joined.count(emoticone) for emoticone in pos_emojis)
+    neg_emoticone = sum(joined.count(emoticone) for emoticone in neg_emojis)
     i = 0
-    while i < L:
-        w = toks[i]
-        p = w in pos_words
-        n = w in neg_words
-        if p or n:
+    while i < num_tokens:
+        current_token = toks[i]
+        is_pos = current_token in pos_words
+        is_neg = current_token in neg_words
+        if is_pos or is_neg:
             j = i - 1
             flip = False
-            while j >= 0 and (toks[j] in intensifiers or toks[j] in negations):
+            while j >= 0 and (toks[j] in intensifiers or toks[j] in links or toks[j] in negations)  and (i-j < 4) \
+                    and not (toks[j] in pos_words or toks[j] in neg_words):
                 if toks[j] in negations:
                     flip = not flip
                 j -= 1
-            if p:
+                
+            if is_pos:
                 if flip:
                     neg += 1
                 else:
@@ -96,7 +118,7 @@ def count_polar_expressions(text: str,
                 else:
                     neg += 1
         i += 1
-    return pos + pe, neg + ne
+    return pos + pos_emoticone, neg + neg_emoticone
 
 
 def load_lexiques() -> dict[str,set[str]]:
@@ -122,34 +144,37 @@ def load_lexiques() -> dict[str,set[str]]:
 def add_features(df: pd.DataFrame, lexiques: dict[str, list[str]]) -> pd.DataFrame:
     emoticon_pos =lexiques["positives_emojis"]
     emoticon_neg = lexiques["negatives_emojis"]
-    word_pos = lexiques["positives_words"]
-    word_neg = lexiques["negatives_words"]
+    pos_words = lexiques["positives_words"]
+    neg_words = lexiques["negatives_words"]
     intensifiers = lexiques["intensifiers"]
-    negation_word = lexiques["negation_words"]
+    negation_words = lexiques["negation_words"]
+    link_words = lexiques["link_words"]
 
     print("positives_emojis:", len(emoticon_pos))
     print("negatives_emojis:", len(emoticon_neg))
-    print("positives_words:", len(word_pos))
-    print("negatives_words:", len(word_neg))
+    print("positives_words:", len(pos_words))
+    print("negatives_words:", len(neg_words))
     print("intensifiers:", len(intensifiers))
-    print("negations:", len(negation_word))
+    print("negations:", len(negation_words))
+    print("links:", len(link_words))
 
     current = df["SentimentText"].astype(str)
     df["nb_mots"] = current.apply( lambda x : len(str(x).split()))
     df["nb_caracteres"]  = current.apply(lambda x: len(str(x)))
+    df["nb_moy_caracteres"]  = current.apply(lambda x: count_average_caracters(str(x)))
     df["nbr_emoticones_positifs"] = current.apply(lambda x: count_occurrences(x, emoticon_pos))
     df["nbr_emoticones_negatifs"] = current.apply(lambda x: count_occurrences(x, emoticon_neg))
-    df["nb_mots_pos"] = current.apply(lambda x: count_occurrences(x, word_pos))
-    df["nb_mots_neg"] = current.apply(lambda x: count_occurrences(x, word_neg))
+    df["nb_mots_pos"] = current.apply(lambda x: count_occurrences(x, pos_words))
+    df["nb_mots_neg"] = current.apply(lambda x: count_occurrences(x, neg_words))
     df["nb_intensifieurs"] = current.apply(lambda x: count_occurrences(x, intensifiers))
-    df["nb_mots_neg"] = current.apply(lambda x: count_occurrences(x, negation_word))
+    df["nb_mots_negation"] = current.apply(lambda x: count_occurrences(x, negation_words))
     df["nb_majuscules"] = current.apply(lambda x: count_all_caps(x))
     df["nb_mentions"] = current.apply(lambda x: count_tokens_starting_with(x, '#'))
     df["nb_hashtags"] = current.apply(lambda x: count_tokens_starting_with(x, '@'))
     df["nb_exclamations"] = current.apply(lambda x: str(x).count("!"))
     df["nb_questions"]    = current.apply(lambda x: str(x).count("?"))
     df["mots_repetes"] = current.apply(lambda x: has_repeated_word(x))
-    res = current.apply(lambda x: count_polar_expressions(x, word_pos, word_neg, intensifiers, negation_word, emoticon_pos, emoticon_neg))
+    res = current.apply(lambda x: count_polar_expressions(x, pos_words, neg_words, intensifiers, negation_words,link_words, emoticon_pos, emoticon_neg))
     df["exp_pos"] = res.apply(lambda t: t[0])
     df["exp_neg"] = res.apply(lambda t: t[1])
     return df
